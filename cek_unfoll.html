@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Unfollower Checker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 space-y-6">
+
+        <!-- Header -->
+        <div class="text-center space-y-1">
+            <h1 class="text-xl font-extrabold tracking-wide uppercase text-indigo-400">
+                Instagram Unfollower Checker
+            </h1>
+            <p class="text-xs text-gray-400">Cari tahu siapa yang tidak follow back</p>
+        </div>
+
+        <!-- Tombol Petunjuk Cara Unduh Data -->
+        <button onclick="toggleModal()"
+            class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-indigo-300 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 border border-gray-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Cara Dapatkan File JSON Instagram
+        </button>
+
+        <!-- Form Box -->
+        <div class="bg-gray-900 p-5 rounded-xl border border-gray-700 space-y-4">
+            <!-- Followers Input -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">File Followers (followers_1.json)</label>
+                <input type="file" id="followersFile" accept=".json"
+                    class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-gray-800 rounded-lg border border-gray-700">
+            </div>
+
+            <!-- Following Input -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">File Following (following.json)</label>
+                <input type="file" id="followingFile" accept=".json"
+                    class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-gray-800 rounded-lg border border-gray-700">
+            </div>
+
+            <!-- Submit Button -->
+            <button id="analyzeBtn" onclick="analyzeData()"
+                class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg text-sm tracking-wide transition">
+                ANALISIS
+            </button>
+        </div>
+
+        <!-- Result Box (Hidden by default) -->
+        <div id="resultBox" class="hidden space-y-4">
+            <div class="text-center font-bold tracking-wider text-gray-300 border-b border-gray-700 pb-2">
+                HASIL
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-2 text-center bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <div>
+                    <span class="block text-xs text-gray-400">Followers</span>
+                    <span id="followersCount" class="text-base font-bold text-white">0</span>
+                </div>
+                <div>
+                    <span class="block text-xs text-gray-400">Following</span>
+                    <span id="followingCount" class="text-base font-bold text-white">0</span>
+                </div>
+                <div>
+                    <span class="block text-xs text-gray-400 text-red-400">Tak Follback</span>
+                    <span id="notFollbackCount" class="text-base font-bold text-red-400">0</span>
+                </div>
+            </div>
+
+            <!-- List of Unfollowers -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs text-gray-400 px-1">
+                    <span>Daftar Akun</span>
+                    <button onclick="copyList()" class="text-indigo-400 hover:underline">Salin Semua</button>
+                </div>
+                <div id="unfollowerList"
+                    class="max-h-60 overflow-y-auto bg-gray-900 rounded-xl p-3 border border-gray-700 divide-y divide-gray-800 text-sm">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Petunjuk Cara Download File JSON -->
+    <div id="guideModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div
+            class="bg-gray-800 border border-gray-700 rounded-2xl max-w-md w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-3">
+                <h3 class="font-bold text-indigo-400 text-base">Cara Dapatkan File JSON Instagram</h3>
+                <button onclick="toggleModal()" class="text-gray-400 hover:text-white text-lg">&times;</button>
+            </div>
+
+            <ol class="list-decimal list-inside space-y-3 text-xs text-gray-300 leading-relaxed">
+                <li>Buka aplikasi Instagram &gt; masuk ke **Profil** &gt; menu titik tiga (kanan atas) &gt; **Pusat Akun
+                    (Account Center)**.</li>
+                <li>Pilih **Informasi dan izin Anda** &gt; **Unduh Informasi Anda**.</li>
+                <li>Klik **Minta Unduhan** &gt; pilih **Pilih jenis informasi**.</li>
+                <li>Centang opsi **Pengikut dan Mengikuti (Followers and Following)** &gt; Klik **Berikutnya**.</li>
+                <li>Ubah **Format** menjadi <strong class="text-indigo-400">JSON</strong> (wajib).</li>
+                <li>Ubah **Rentang Waktu** menjadi <strong class="text-indigo-400">Semua waktu (All time)</strong>.</li>
+                <li>Klik **Kirim Permintaan**. Tunggu email dari Instagram (biasanya 5–30 menit).</li>
+                <li>Download file ZIP dari email, lalu ekstrak file-nya.</li>
+                <li>Cari folder `connections/followers_and_following/` untuk menemukan file `followers_1.json` dan
+                    `following.json`.</li>
+            </ol>
+
+            <button onclick="toggleModal()"
+                class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs">
+                Mengerti
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function toggleModal() {
+            document.getElementById('guideModal').classList.toggle('hidden');
+        }
+
+        async function readJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        resolve(JSON.parse(e.target.result));
+                    } catch (err) {
+                        reject("Format file JSON tidak valid.");
+                    }
+                };
+                reader.onerror = () => reject("Gagal membaca file.");
+                reader.readAsText(file);
+            });
+        }
+
+        function extractUsernames(data, type) {
+            const usernames = new Set();
+            try {
+                if (type === 'followers') {
+                    const list = Array.isArray(data) ? data : (data.relationships_followers || []);
+                    list.forEach(item => {
+                        if (item.string_list_data) {
+                            item.string_list_data.forEach(val => usernames.add(val.value));
+                        }
+                    });
+                } else if (type === 'following') {
+                    const list = data.relationships_following || (Array.isArray(data) ? data : []);
+                    list.forEach(item => {
+                        if (item.string_list_data) {
+                            item.string_list_data.forEach(val => usernames.add(val.value));
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Error parsing structure:", e);
+            }
+            return usernames;
+        }
+
+        async function analyzeData() {
+            const followersInput = document.getElementById('followersFile').files[0];
+            const followingInput = document.getElementById('followingFile').files[0];
+
+            if (!followersInput || !followingInput) {
+                alert("Harap pilih kedua file (Followers & Following) terlebih dahulu!");
+                return;
+            }
+
+            try {
+                const followersData = await readJsonFile(followersInput);
+                const followingData = await readJsonFile(followingInput);
+
+                const followersSet = extractUsernames(followersData, 'followers');
+                const followingSet = extractUsernames(followingData, 'following');
+
+                const notFollowingBack = [];
+                followingSet.forEach(user => {
+                    if (!followersSet.has(user)) {
+                        notFollowingBack.push(user);
+                    }
+                });
+
+                document.getElementById('followersCount').innerText = followersSet.size.toLocaleString();
+                document.getElementById('followingCount').innerText = followingSet.size.toLocaleString();
+                document.getElementById('notFollbackCount').innerText = notFollowingBack.length.toLocaleString();
+
+                const listContainer = document.getElementById('unfollowerList');
+                listContainer.innerHTML = '';
+
+                if (notFollowingBack.length === 0) {
+                    listContainer.innerHTML = `<div class="text-center text-gray-500 py-4">Semua akun mengikuti kamu kembali! 🎉</div>`;
+                } else {
+                    notFollowingBack.sort().forEach(username => {
+                        const item = document.createElement('div');
+                        item.className = 'py-2 flex justify-between items-center text-gray-300 hover:text-white';
+                        item.innerHTML = `
+                            <span>@${username}</span>
+                            <a href="https://instagram.com/${username}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:underline">Buka Profil</a>
+                        `;
+                        listContainer.appendChild(item);
+                    });
+                }
+
+                document.getElementById('resultBox').classList.remove('hidden');
+
+            } catch (err) {
+                alert(err);
+            }
+        }
+
+        function copyList() {
+            const items = document.querySelectorAll('#unfollowerList span');
+            if (items.length === 0) return;
+
+            const text = Array.from(items).map(i => i.innerText).join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Daftar username berhasil disalin!");
+            });
+        }
+    </script>
+</body>
+
+</html>
