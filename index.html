@@ -734,8 +734,10 @@
         }
 
         /* sections -------------------------------------------------------- */
+        /* padding-top only: the horizontal padding comes from .wrap, which is on the
+           same element (class="wrap section"). A `padding` shorthand here would wipe it. */
         .section {
-            padding: 96px 0 0;
+            padding-top: 96px;
         }
 
         .section-head {
