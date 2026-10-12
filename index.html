@@ -1314,7 +1314,22 @@
         /* ------------------------------------------------------------------ */
         /* parsing helpers                                                     */
         /* ------------------------------------------------------------------ */
-        const clean = name => String(name || '').trim().replace(/^@/, '').toLowerCase();
+        // Instagram usernames are [a-z0-9._], max 30 chars. Anything else (a URL, a
+        // caption fragment) is not a username and must not be stored as one.
+        const VALID_USER = /^[a-z0-9._]{1,30}$/;
+
+        const clean = name => {
+            const v = String(name == null ? '' : name).trim().replace(/^@/, '').toLowerCase();
+            return VALID_USER.test(v) ? v : '';
+        };
+
+        // Some export entries carry only an href such as
+        // "https://www.instagram.com/_u/05s.ac" — take the last path segment.
+        const fromHref = href => {
+            const raw = String(href || '').split(/[?#]/)[0];
+            const seg = raw.split('/').filter(Boolean).pop() || '';
+            return clean(decodeURIComponent(seg));
+        };
 
         function collectFromNode(node, into) {
             if (!node) return;
@@ -1324,7 +1339,8 @@
             // Modern export shape: { string_list_data: [{ value: "@user" }] }
             if (Array.isArray(node.string_list_data)) {
                 node.string_list_data.forEach(entry => {
-                    const v = clean(entry && (entry.value ?? entry.href));
+                    if (!entry || typeof entry !== 'object') return;
+                    const v = clean(entry.value) || fromHref(entry.href);
                     if (v) into.add(v);
                 });
                 return;
@@ -1336,20 +1352,18 @@
             Object.values(node).forEach(v => collectFromNode(v, into));
         }
 
-        function parseFollowers(data) {
-            const set = new Set();
-            if (Array.isArray(data)) collectFromNode(data, set);
-            else if (data && Array.isArray(data.relationships_followers)) collectFromNode(data.relationships_followers, set);
-            else collectFromNode(data, set);
-            return set;
+        function parseFollowers(data, into = new Set()) {
+            if (Array.isArray(data)) collectFromNode(data, into);
+            else if (data && Array.isArray(data.relationships_followers)) collectFromNode(data.relationships_followers, into);
+            else collectFromNode(data, into);
+            return into;
         }
 
-        function parseFollowing(data) {
-            const set = new Set();
-            if (data && Array.isArray(data.relationships_following)) collectFromNode(data.relationships_following, set);
-            else if (Array.isArray(data)) collectFromNode(data, set);
-            else collectFromNode(data, set);
-            return set;
+        function parseFollowing(data, into = new Set()) {
+            if (data && Array.isArray(data.relationships_following)) collectFromNode(data.relationships_following, into);
+            else if (Array.isArray(data)) collectFromNode(data, into);
+            else collectFromNode(data, into);
+            return into;
         }
 
         const readText = file => new Promise((res, rej) => {
@@ -1415,24 +1429,27 @@
                 const jsonPaths = [...original.keys()].filter(p => /\.json$/i.test(p));
                 if (!jsonPaths.length) throw new Error('No JSON files were found inside that ZIP.');
 
-                // Prefer the official folder layout, then fall back to any matching filename.
-                const pick = (re, folderRe) => {
+                /* Instagram splits a large follower list across followers_1.json,
+                   followers_2.json, ... so every matching chunk has to be read,
+                   not just the first one. `following` is normally one file, but
+                   the same fan-out is handled for symmetry. */
+                const pickAll = (re, folderRe) => {
                     const scoped = jsonPaths.filter(p => folderRe.test(p) && re.test(p.split('/').pop()));
-                    const loose = jsonPaths.filter(p => re.test(p.split('/').pop()));
-                    return scoped[0] || loose[0];
+                    if (scoped.length) return scoped;
+                    return jsonPaths.filter(p => re.test(p.split('/').pop()));
                 };
 
                 const readJSON = async key => parseJSON(await zip.file(original.get(key)).async('string'));
 
-                const followersPath = pick(/^followers/i, /followers_and_following|connections/i);
-                const followingPath = pick(/^following/i, /followers_and_following|connections/i);
+                const followerPaths = pickAll(/^followers(_\d+)?\.json$/i, /followers_and_following|connections/i);
+                const followingPaths = pickAll(/^following(_\d+)?\.json$/i, /followers_and_following|connections/i);
 
-                if (!followersPath && !followingPath) {
+                if (!followerPaths.length && !followingPaths.length) {
                     throw new Error('Could not find followers / following JSON in this ZIP. Make sure the export was requested with the “Followers and following” option.');
                 }
 
-                if (followersPath) followers = parseFollowers(await readJSON(followersPath));
-                if (followingPath) following = parseFollowing(await readJSON(followingPath));
+                for (const p of followerPaths) parseFollowers(await readJSON(p), followers);
+                for (const p of followingPaths) parseFollowing(await readJSON(p), following);
             } else if (/\.json$/i.test(file.name)) {
                 const data = parseJSON(await readText(file));
                 const isFollowers = /followers/i.test(file.name);
