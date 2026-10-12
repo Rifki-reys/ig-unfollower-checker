@@ -580,6 +580,60 @@
             background: rgba(52, 199, 123, .08);
         }
 
+        /* diagnostics ------------------------------------------------------- */
+        .diag {
+            margin: 12px 4px 4px;
+            text-align: left;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: var(--card-2);
+        }
+
+        .diag[hidden] {
+            display: none;
+        }
+
+        .diag summary {
+            padding: 12px 16px;
+            font-size: 13.5px;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .diag summary::after {
+            font-size: 17px;
+        }
+
+        .diag table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .diag td {
+            padding: 8px 16px;
+            border-top: 1px solid var(--line-soft);
+            color: var(--muted);
+        }
+
+        .diag td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            white-space: nowrap;
+        }
+
+        .diag td.file {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12.5px;
+            word-break: break-all;
+        }
+
+        .diag td.kind {
+            white-space: nowrap;
+            color: var(--accent-soft);
+        }
+
         /* results --------------------------------------------------------- */
         .results {
             margin: 0 auto;
@@ -1133,6 +1187,11 @@
                     </div>
 
                     <div class="status" id="status"></div>
+
+                    <details class="diag" id="diag" hidden>
+                        <summary>Which files were read?</summary>
+                        <div id="diagBody"></div>
+                    </details>
                 </div>
 
                 <div class="results" id="results" hidden>
@@ -1300,7 +1359,8 @@
         /* ------------------------------------------------------------------ */
         const state = {
             exports: [],   // [{ label, followers:Set, following:Set }]
-            view: 'ghosters'
+            view: 'ghosters',
+            diagnostics: []   // which files inside the ZIP contributed which list
         };
 
         const $ = id => document.getElementById(id);
@@ -1429,27 +1489,74 @@
                 const jsonPaths = [...original.keys()].filter(p => /\.json$/i.test(p));
                 if (!jsonPaths.length) throw new Error('No JSON files were found inside that ZIP.');
 
-                /* Instagram splits a large follower list across followers_1.json,
-                   followers_2.json, ... so every matching chunk has to be read,
-                   not just the first one. `following` is normally one file, but
-                   the same fan-out is handled for symmetry. */
-                const pickAll = (re, folderRe) => {
-                    const scoped = jsonPaths.filter(p => folderRe.test(p) && re.test(p.split('/').pop()));
-                    if (scoped.length) return scoped;
-                    return jsonPaths.filter(p => re.test(p.split('/').pop()));
-                };
-
                 const readJSON = async key => parseJSON(await zip.file(original.get(key)).async('string'));
 
-                const followerPaths = pickAll(/^followers(_\d+)?\.json$/i, /followers_and_following|connections/i);
-                const followingPaths = pickAll(/^following(_\d+)?\.json$/i, /followers_and_following|connections/i);
+                /* Filenames vary between export generations and locale, so never rely on
+                   the name alone. Each candidate JSON is classified by its own structure:
+                   does it carry relationships_followers / relationships_following, or an
+                   array of blocks whose `title` says which list it is? Every matching file
+                   is merged, which also covers Instagram splitting a big list across
+                   followers_1.json, followers_2.json, ... */
+                const looksLikeFollowers = data =>
+                    !!data && Array.isArray(data.relationships_followers);
+                const looksLikeFollowing = data =>
+                    !!data && Array.isArray(data.relationships_following);
 
-                if (!followerPaths.length && !followingPaths.length) {
-                    throw new Error('Could not find followers / following JSON in this ZIP. Make sure the export was requested with the “Followers and following” option.');
+                const blockTitle = data => {
+                    if (!Array.isArray(data)) return '';
+                    return String(data.find(b => b && typeof b.title === 'string')?.title || '').toLowerCase();
+                };
+
+                const report = [];
+                const matched = { followers: [], following: [] };
+
+                for (const p of jsonPaths) {
+                    let data;
+                    try { data = await readJSON(p); } catch { continue; }
+
+                    const base = p.split('/').pop();
+                    const title = blockTitle(data);
+                    const isF = looksLikeFollowers(data) || title === 'followers';
+                    const isG = looksLikeFollowing(data) || title === 'following';
+                    if (!isF && !isG) continue;
+
+                    const beforeF = followers.size, beforeG = following.size;
+                    if (isF) parseFollowers(data, followers);
+                    if (isG) parseFollowing(data, following);
+
+                    if (isF) matched.followers.push(base);
+                    if (isG) matched.following.push(base);
+                    report.push({
+                        base,
+                        kind: isF && isG ? 'both' : isF ? 'followers' : 'following',
+                        added: (followers.size - beforeF) + (following.size - beforeG),
+                    });
                 }
 
-                for (const p of followerPaths) parseFollowers(await readJSON(p), followers);
-                for (const p of followingPaths) parseFollowing(await readJSON(p), following);
+                // Fallback for exports that use only the filename convention.
+                if (!matched.followers.length || !matched.following.length) {
+                    const byName = (re) => jsonPaths.filter(p => re.test(p.split('/').pop()));
+                    for (const p of byName(/^followers(_\d+)?\.json$/i)) {
+                        if (matched.followers.includes(p.split('/').pop())) continue;
+                        const before = followers.size;
+                        parseFollowers(await readJSON(p), followers);
+                        report.push({ base: p.split('/').pop(), kind: 'followers', added: followers.size - before });
+                        matched.followers.push(p.split('/').pop());
+                    }
+                    for (const p of byName(/^following(_\d+)?\.json$/i)) {
+                        if (matched.following.includes(p.split('/').pop())) continue;
+                        const before = following.size;
+                        parseFollowing(await readJSON(p), following);
+                        report.push({ base: p.split('/').pop(), kind: 'following', added: following.size - before });
+                        matched.following.push(p.split('/').pop());
+                    }
+                }
+
+                state.diagnostics = report;
+
+                if (!matched.followers.length && !matched.following.length) {
+                    throw new Error('Could not find followers / following JSON in this ZIP. Make sure the export was requested with the “Followers and following” option.');
+                }
             } else if (/\.json$/i.test(file.name)) {
                 const data = parseJSON(await readText(file));
                 const isFollowers = /followers/i.test(file.name);
@@ -1529,6 +1636,23 @@
 
             $('results').hidden = false;
             paintList();
+            renderDiagnostics();
+        }
+
+        // Shows exactly which files inside the ZIP contributed which list, so a
+        // surprising count can be traced instead of guessed at.
+        function renderDiagnostics() {
+            const box = $('diag');
+            const rows = state.diagnostics;
+            if (!rows.length) { box.hidden = true; return; }
+
+            $('diagBody').innerHTML = `<table>${rows.map(r => `
+                <tr>
+                    <td class="file">${escapeHTML(r.base)}</td>
+                    <td class="kind">${escapeHTML(r.kind)}</td>
+                    <td class="num">+${r.added.toLocaleString()}</td>
+                </tr>`).join('')}</table>`;
+            box.hidden = false;
         }
 
         function currentList() {
