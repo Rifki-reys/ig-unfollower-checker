@@ -1,228 +1,1612 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram Unfollower Checker</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Unfollow Checker — Who doesn't follow back on Instagram / Threads?</title>
+    <meta name="description"
+        content="Upload your official Instagram or Threads data export and instantly see who doesn't follow you back. Runs entirely in your browser — no sign-up, no passwords, nothing uploaded.">
+    <meta name="theme-color" content="#0b0b0d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+    <style>
+        :root {
+            --bg: #0b0b0d;
+            --bg-elev: #121214;
+            --card: #131316;
+            --card-2: #17171b;
+            --line: rgba(255, 255, 255, .09);
+            --line-soft: rgba(255, 255, 255, .05);
+            --text: #f4f3f1;
+            --muted: #9a9aa1;
+            --muted-2: #74747c;
+            --accent: #ff6b5a;
+            --accent-soft: #ff8f74;
+            --accent-ink: #2a0f0a;
+            --glow: rgba(255, 107, 90, .35);
+            --shadow: 0 24px 60px -24px rgba(0, 0, 0, .9);
+        }
+
+        [data-theme="light"] {
+            --bg: #faf9f7;
+            --bg-elev: #ffffff;
+            --card: #ffffff;
+            --card-2: #f4f2ef;
+            --line: rgba(10, 10, 12, .10);
+            --line-soft: rgba(10, 10, 12, .06);
+            --text: #101014;
+            --muted: #63636b;
+            --muted-2: #85858d;
+            --accent: #e2452f;
+            --accent-soft: #ff6b5a;
+            --accent-ink: #ffffff;
+            --glow: rgba(226, 69, 47, .28);
+            --shadow: 0 24px 60px -30px rgba(20, 20, 30, .35);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-size: 16px;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        h1,
+        h2,
+        h3,
+        .brand-name {
+            font-family: Poppins, Inter, sans-serif;
+            letter-spacing: -.03em;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ambient glow ---------------------------------------------------- */
+        .glow {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(760px 420px at 50% -6%, var(--glow), transparent 70%),
+                radial-gradient(600px 400px at 100% 30%, rgba(255, 107, 90, .07), transparent 70%);
+            opacity: .55;
+        }
+
+        [data-theme="light"] .glow {
+            opacity: .45;
+        }
+
+        main,
+        header,
+        footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* nav ------------------------------------------------------------- */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            backdrop-filter: blur(14px);
+            background: color-mix(in srgb, var(--bg) 78%, transparent);
+            border-bottom: 1px solid transparent;
+            transition: border-color .25s ease;
+        }
+
+        .nav.scrolled {
+            border-bottom-color: var(--line);
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            height: 74px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-right: auto;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            background: linear-gradient(140deg, #ff8a6b, #f2523d);
+            box-shadow: 0 8px 22px -8px var(--glow);
+        }
+
+        .brand-mark svg {
+            width: 21px;
+            height: 21px;
+        }
+
+        .brand-name {
+            font-weight: 600;
+            font-size: 15px;
+            line-height: 1.15;
+        }
+
+        .brand-sub {
+            font-size: 11.5px;
+            color: var(--muted);
+            line-height: 1.3;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 26px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon-btn,
+        .lang-btn {
+            height: 38px;
+            min-width: 38px;
+            padding: 0 12px;
+            border-radius: 11px;
+            border: 1px solid var(--line);
+            background: var(--bg-elev);
+            color: var(--text);
+            font: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: border-color .2s ease, background .2s ease, transform .2s ease;
+        }
+
+        .icon-btn:hover,
+        .lang-btn:hover {
+            border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+        }
+
+        .icon-btn svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        [data-theme="dark"] .sun {
+            display: none;
+        }
+
+        [data-theme="light"] .moon {
+            display: none;
+        }
+
+        .btn {
+            height: 40px;
+            padding: 0 18px;
+            border-radius: 11px;
+            border: 1px solid var(--line);
+            background: var(--bg-elev);
+            color: var(--text);
+            font: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform .2s ease, border-color .2s ease, background .2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .nav-toggle {
+            display: none;
+        }
+
+        .mobile-menu {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            padding: 0 24px 18px;
+        }
+
+        .mobile-menu a {
+            padding: 11px 14px;
+            border-radius: 11px;
+            border: 1px solid var(--line);
+            background: var(--bg-elev);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--text);
+        }
+
+        .mobile-menu.show {
+            display: flex;
+        }
+
+        /* hero ------------------------------------------------------------ */
+        .hero {
+            padding: 56px 0 0;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 16px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            color: var(--accent-soft);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .pill .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+        }
+
+        .hero h1 {
+            margin: 26px 0 0;
+            font-size: clamp(2.6rem, 6vw, 4.9rem);
+            line-height: .98;
+            font-weight: 700;
+            max-width: 16ch;
+        }
+
+        .hero h1 em {
+            font-style: normal;
+            color: var(--muted);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.15fr .95fr;
+            gap: 46px;
+            margin-top: 38px;
+            align-items: start;
+        }
+
+        .lead {
+            color: var(--muted);
+            font-size: 17px;
+            max-width: 46ch;
+            margin: 0;
+        }
+
+        .lead a {
+            color: var(--accent);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .lead a:hover {
+            color: var(--accent-soft);
+        }
+
+        .feature-list {
+            border-left: 1px solid var(--line);
+            padding-left: 34px;
+            display: grid;
+            gap: 22px;
+        }
+
+        .feature {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 14px;
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 13%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+        }
+
+        .feature-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .feature h3 {
+            margin: 0 0 2px;
+            font-family: Inter, sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -.01em;
+        }
+
+        .feature p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        /* uploader -------------------------------------------------------- */
+        .checker {
+            margin: 46px auto 0;
+            border: 1px solid var(--line);
+            border-radius: 30px;
+            background:
+                radial-gradient(700px 240px at 50% -10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+                var(--card);
+            box-shadow: var(--shadow);
+            padding: 8px;
+        }
+
+        .drop {
+            border: 1px dashed color-mix(in srgb, var(--accent) 26%, var(--line));
+            border-radius: 24px;
+            padding: 52px 28px 34px;
+            text-align: center;
+            background: color-mix(in srgb, var(--bg) 40%, transparent);
+            transition: border-color .2s ease, background .2s ease, transform .2s ease;
+        }
+
+        .drop.over {
+            border-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 9%, transparent);
+            transform: scale(1.005);
+        }
+
+        .upload-icon {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 18px;
+            border-radius: 22px;
+            display: grid;
+            place-items: center;
+            color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+        }
+
+        .upload-icon svg {
+            width: 30px;
+            height: 30px;
+        }
+
+        .drop h2 {
+            margin: 0 0 6px;
+            font-size: 25px;
+            font-weight: 600;
+        }
+
+        .drop .sub {
+            margin: 0 0 24px;
+            color: var(--muted);
+            font-size: 14.5px;
+        }
+
+        .btn-primary {
+            height: 46px;
+            padding: 0 26px;
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #ff7d64, #f2563f);
+            color: #fff;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            box-shadow: 0 12px 30px -12px var(--glow);
+            transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.04);
+            box-shadow: 0 18px 38px -12px var(--glow);
+        }
+
+        .btn-primary svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        .chips {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 18px;
+        }
+
+        .chip {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: var(--muted);
+            padding: 5px 11px;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: var(--card-2);
+        }
+
+        .hint {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            margin: 26px 6px 18px;
+            padding-top: 22px;
+            border-top: 1px solid var(--line-soft);
+            color: var(--muted);
+            font-size: 13.5px;
+            text-align: center;
+        }
+
+        .hint svg {
+            width: 16px;
+            height: 16px;
+            flex: none;
+            color: var(--muted-2);
+        }
+
+        .hint strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .manual {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .manual label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 15px;
+            border-radius: 11px;
+            border: 1px solid var(--line);
+            background: var(--bg-elev);
+            font-size: 13.5px;
+            color: var(--muted);
+            cursor: pointer;
+            transition: border-color .2s ease, color .2s ease;
+        }
+
+        .manual label:hover {
+            border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+            color: var(--text);
+        }
+
+        .manual input {
+            display: none;
+        }
+
+        /* status ---------------------------------------------------------- */
+        .status {
+            display: none;
+            margin: 16px 4px 4px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            font-size: 14px;
+            border: 1px solid var(--line);
+            background: var(--card-2);
+            color: var(--muted);
+            text-align: left;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.err {
+            border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+            color: var(--accent-soft);
+            background: color-mix(in srgb, var(--accent) 9%, transparent);
+        }
+
+        .status.ok {
+            border-color: rgba(52, 199, 123, .4);
+            color: #34c77b;
+            background: rgba(52, 199, 123, .08);
+        }
+
+        /* results --------------------------------------------------------- */
+        .results {
+            margin: 0 auto;
+            padding: 0 0 8px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+
+        .stat {
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: var(--card-2);
+            padding: 16px 18px;
+        }
+
+        .stat .k {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted-2);
+            margin-bottom: 6px;
+        }
+
+        .stat .v {
+            font-family: Poppins, sans-serif;
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: -.02em;
+        }
+
+        .stat.warn .v {
+            color: var(--accent);
+        }
+
+        .stat.good .v {
+            color: #34c77b;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            padding: 8px 15px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--muted);
+            font: inherit;
+            font-size: 13.5px;
+            cursor: pointer;
+            transition: .2s ease;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+            color: var(--accent-soft);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .search {
+            flex: 1;
+            height: 40px;
+            padding: 0 14px;
+            border-radius: 11px;
+            border: 1px solid var(--line);
+            background: var(--bg-elev);
+            color: var(--text);
+            font: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search:focus {
+            border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+        }
+
+        .user-list {
+            max-height: 420px;
+            overflow-y: auto;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: var(--card-2);
+        }
+
+        .user-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--line-soft);
+        }
+
+        .user-row:last-child {
+            border-bottom: 0;
+        }
+
+        .user-row:hover {
+            background: color-mix(in srgb, var(--accent) 6%, transparent);
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            flex: none;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-soft);
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            text-transform: uppercase;
+        }
+
+        .username {
+            font-size: 14.5px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .open-link {
+            margin-left: auto;
+            font-size: 12.5px;
+            color: var(--muted);
+            white-space: nowrap;
+            transition: color .2s ease;
+        }
+
+        .open-link:hover {
+            color: var(--accent);
+        }
+
+        .empty {
+            padding: 34px 20px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 14.5px;
+        }
+
+        /* sections -------------------------------------------------------- */
+        .section {
+            padding: 96px 0 0;
+        }
+
+        .section-head {
+            max-width: 620px;
+            margin-bottom: 42px;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 12px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .section h2 {
+            margin: 0 0 12px;
+            font-size: clamp(1.9rem, 3.4vw, 2.7rem);
+            line-height: 1.08;
+            font-weight: 600;
+        }
+
+        .section-head p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 16px;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            counter-reset: step;
+        }
+
+        .step {
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: var(--card);
+            padding: 22px 20px;
+        }
+
+        .step .num {
+            font-family: Poppins, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .step h3 {
+            margin: 0 0 6px;
+            font-family: Inter, sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -.01em;
+        }
+
+        .step p {
+            margin: 0;
+            font-size: 13.5px;
+            color: var(--muted);
+        }
+
+        .faq-list {
+            display: grid;
+            gap: 10px;
+            max-width: 780px;
+        }
+
+        details {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--card);
+            padding: 4px 20px;
+        }
+
+        summary {
+            cursor: pointer;
+            list-style: none;
+            padding: 16px 0;
+            font-weight: 500;
+            font-size: 15.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: "+";
+            color: var(--accent);
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        details[open] summary::after {
+            content: "\2212";
+        }
+
+        details p {
+            margin: 0 0 18px;
+            color: var(--muted);
+            font-size: 14.5px;
+            max-width: 66ch;
+        }
+
+        .cta {
+            margin-top: 20px;
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            background: var(--card);
+            padding: 44px 34px;
+            text-align: center;
+        }
+
+        .cta h2 {
+            margin: 0 0 8px;
+            font-size: clamp(1.6rem, 3vw, 2.2rem);
+            font-weight: 600;
+        }
+
+        .cta p {
+            margin: 0 auto 24px;
+            color: var(--muted);
+            max-width: 46ch;
+        }
+
+        footer {
+            margin-top: 96px;
+            border-top: 1px solid var(--line);
+            padding: 34px 0 46px;
+        }
+
+        .foot-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+            color: var(--muted-2);
+            font-size: 13px;
+        }
+
+        .foot-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .foot-links a:hover {
+            color: var(--text);
+        }
+
+        .disclaimer {
+            max-width: 60ch;
+            color: var(--muted-2);
+            font-size: 12.5px;
+        }
+
+        /* responsive ------------------------------------------------------ */
+        @media (max-width: 940px) {
+            .nav-links {
+                display: none;
+            }
+
+            .nav-toggle {
+                display: inline-flex;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 34px;
+            }
+
+            .feature-list {
+                border-left: 0;
+                padding-left: 0;
+                border-top: 1px solid var(--line);
+                padding-top: 28px;
+            }
+
+            .steps {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 620px) {
+            .brand-sub {
+                display: none;
+            }
+
+            .nav-actions .lang-btn,
+            .nav-actions .btn-signin {
+                display: none;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                padding-top: 36px;
+            }
+
+            .drop {
+                padding: 40px 18px 28px;
+            }
+        }
+    </style>
 </head>
 
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+<body>
+    <div class="glow"></div>
 
-    <div class="w-full max-w-md bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 space-y-6">
+    <!-- ================= NAV ================= -->
+    <header class="nav" id="nav">
+        <div class="wrap nav-inner">
+            <a class="brand" href="#top">
+                <span class="brand-mark">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="9" cy="8" r="3" />
+                        <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+                        <path d="M17 11.2a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6Z" opacity=".55" />
+                        <path d="M19.5 20a5.2 5.2 0 0 0-3.2-4.8" opacity=".55" />
+                    </svg>
+                </span>
+                <span>
+                    <span class="brand-name">Unfollow Checker</span><br>
+                    <span class="brand-sub">Meta · Instagram &amp; Threads</span>
+                </span>
+            </a>
 
-        <!-- Header -->
-        <div class="text-center space-y-1">
-            <h1 class="text-xl font-extrabold tracking-wide uppercase text-indigo-400">
-                Instagram Unfollower Checker
-            </h1>
-            <p class="text-xs text-gray-400">Cari tahu siapa yang tidak follow back</p>
-        </div>
+            <nav class="nav-links">
+                <a href="#how">How it works</a>
+                <a href="#about">About</a>
+                <a href="#faq">FAQ</a>
+                <a href="#checker">Contact</a>
+            </nav>
 
-        <!-- Tombol Petunjuk Cara Unduh Data -->
-        <button onclick="toggleModal()"
-            class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-indigo-300 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 border border-gray-600 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Cara Dapatkan File JSON Instagram
-        </button>
-
-        <!-- Form Box -->
-        <div class="bg-gray-900 p-5 rounded-xl border border-gray-700 space-y-4">
-            <!-- Followers Input -->
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">File Followers (followers_1.json)</label>
-                <input type="file" id="followersFile" accept=".json"
-                    class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-gray-800 rounded-lg border border-gray-700">
-            </div>
-
-            <!-- Following Input -->
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">File Following (following.json)</label>
-                <input type="file" id="followingFile" accept=".json"
-                    class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-gray-800 rounded-lg border border-gray-700">
-            </div>
-
-            <!-- Submit Button -->
-            <button id="analyzeBtn" onclick="analyzeData()"
-                class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-lg text-sm tracking-wide transition">
-                ANALISIS
-            </button>
-        </div>
-
-        <!-- Result Box (Hidden by default) -->
-        <div id="resultBox" class="hidden space-y-4">
-            <div class="text-center font-bold tracking-wider text-gray-300 border-b border-gray-700 pb-2">
-                HASIL
-            </div>
-
-            <!-- Stats -->
-            <div class="grid grid-cols-3 gap-2 text-center bg-gray-900 p-3 rounded-xl border border-gray-700">
-                <div>
-                    <span class="block text-xs text-gray-400">Followers</span>
-                    <span id="followersCount" class="text-base font-bold text-white">0</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-gray-400">Following</span>
-                    <span id="followingCount" class="text-base font-bold text-white">0</span>
-                </div>
-                <div>
-                    <span class="block text-xs text-gray-400 text-red-400">Tak Follback</span>
-                    <span id="notFollbackCount" class="text-base font-bold text-red-400">0</span>
-                </div>
-            </div>
-
-            <!-- List of Unfollowers -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center text-xs text-gray-400 px-1">
-                    <span>Daftar Akun</span>
-                    <button onclick="copyList()" class="text-indigo-400 hover:underline">Salin Semua</button>
-                </div>
-                <div id="unfollowerList"
-                    class="max-h-60 overflow-y-auto bg-gray-900 rounded-xl p-3 border border-gray-700 divide-y divide-gray-800 text-sm">
-                </div>
+            <div class="nav-actions">
+                <button class="icon-btn" id="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">
+                    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+                    </svg>
+                    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4.2" />
+                        <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" />
+                    </svg>
+                </button>
+                <button class="lang-btn" title="Language">EN</button>
+                <button class="btn btn-signin">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="3.4" />
+                        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+                    </svg>
+                    Sign in
+                </button>
+                <button class="icon-btn nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                        <path d="M4 7h16M4 12h16M4 17h16" />
+                    </svg>
+                </button>
             </div>
         </div>
 
-    </div>
+        <nav class="mobile-menu" id="mobileMenu">
+            <a href="#how">How it works</a>
+            <a href="#about">About</a>
+            <a href="#faq">FAQ</a>
+            <a href="#checker">Contact</a>
+        </nav>
+    </header>
 
-    <!-- Modal Petunjuk Cara Download File JSON -->
-    <div id="guideModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-        <div
-            class="bg-gray-800 border border-gray-700 rounded-2xl max-w-md w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-3">
-                <h3 class="font-bold text-indigo-400 text-base">Cara Dapatkan File JSON Instagram</h3>
-                <button onclick="toggleModal()" class="text-gray-400 hover:text-white text-lg">&times;</button>
+    <main id="top">
+        <!-- ================= HERO ================= -->
+        <section class="hero">
+            <div class="wrap">
+                <span class="pill"><span class="dot"></span>Manual analysis · no passwords</span>
+
+                <h1>Who doesn't follow back on <em>Instagram / Threads?</em></h1>
+
+                <div class="hero-grid">
+                    <p class="lead">
+                        Choose your official Instagram or Threads <a href="#how">data export</a>.
+                        One export shows who doesn't follow you back; add a second, older export to also see
+                        new followers and the people who quietly unfollowed you.
+                    </p>
+
+                    <div class="feature-list">
+                        <div class="feature">
+                            <span class="feature-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                            </span>
+                            <div>
+                                <h3>Free to check. No sign-up.</h3>
+                                <p>No app to install and no account to create.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature">
+                            <span class="feature-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 3 4.5 6v5.6c0 4.4 3.1 8.3 7.5 9.4 4.4-1.1 7.5-5 7.5-9.4V6L12 3Z" />
+                                    <path d="m9.4 12 1.9 1.9 3.5-3.7" />
+                                </svg>
+                            </span>
+                            <div>
+                                <h3>Your ZIP stays on your device</h3>
+                                <p>Parsing runs right in your browser — nothing is uploaded to a server.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= CHECKER ================= -->
+        <section class="wrap" id="checker">
+            <div class="checker">
+                <div class="drop" id="drop">
+                    <span class="upload-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 16V4" />
+                            <path d="m7.5 8.5 4.5-4.5 4.5 4.5" />
+                            <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+                        </svg>
+                    </span>
+
+                    <h2>Drop your file here</h2>
+                    <p class="sub">or pick manually · .zip (JSON and HTML)</p>
+
+                    <button class="btn-primary" id="chooseBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+                            <path d="M14 3v5h5" />
+                        </svg>
+                        Choose file
+                    </button>
+                    <input type="file" id="fileInput" accept=".zip,.json,.html,.htm" hidden>
+
+                    <div class="chips">
+                        <span class="chip">instagram.zip</span>
+                        <span class="chip">threads</span>
+                        <span class="chip">connections/followers_and_following</span>
+                    </div>
+
+                    <p class="hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3.2 1.9" />
+                        </svg>
+                        <span>When creating your export in Instagram or Threads, set <strong>“Data range” to “All time”</strong>.
+                            The archive should cover the entire period.</span>
+                    </p>
+
+                    <div class="manual">
+                        <label>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+                            </svg>
+                            Followers JSON
+                            <input type="file" id="followersFile" accept=".json">
+                        </label>
+                        <label>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+                            </svg>
+                            Following JSON
+                            <input type="file" id="followingFile" accept=".json">
+                        </label>
+                    </div>
+
+                    <div class="status" id="status"></div>
+                </div>
+
+                <div class="results" id="results" hidden>
+                    <div class="stats" id="stats"></div>
+
+                    <div class="tabs" id="tabs"></div>
+
+                    <div class="toolbar">
+                        <input class="search" id="search" type="search" placeholder="Search username…">
+                        <button class="btn" id="copyBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="11" height="11" rx="2" />
+                                <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+                            </svg>
+                            Copy
+                        </button>
+                        <button class="btn" id="csvBtn">CSV</button>
+                    </div>
+
+                    <div class="user-list" id="userList"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= HOW IT WORKS ================= -->
+        <section class="wrap section" id="how">
+            <div class="section-head">
+                <span class="eyebrow">How it works</span>
+                <h2>Four steps, no account needed</h2>
+                <p>Everything runs locally in this tab. Your export archive is read, matched, and discarded —
+                    it never leaves your browser.</p>
             </div>
 
-            <ol class="list-decimal list-inside space-y-3 text-xs text-gray-300 leading-relaxed">
-                <li>Buka aplikasi Instagram &gt; masuk ke **Profil** &gt; menu titik tiga (kanan atas) &gt; **Pusat Akun
-                    (Account Center)**.</li>
-                <li>Pilih **Informasi dan izin Anda** &gt; **Unduh Informasi Anda**.</li>
-                <li>Klik **Minta Unduhan** &gt; pilih **Pilih jenis informasi**.</li>
-                <li>Centang opsi **Pengikut dan Mengikuti (Followers and Following)** &gt; Klik **Berikutnya**.</li>
-                <li>Ubah **Format** menjadi <strong class="text-indigo-400">JSON</strong> (wajib).</li>
-                <li>Ubah **Rentang Waktu** menjadi <strong class="text-indigo-400">Semua waktu (All time)</strong>.</li>
-                <li>Klik **Kirim Permintaan**. Tunggu email dari Instagram (biasanya 5–30 menit).</li>
-                <li>Download file ZIP dari email, lalu ekstrak file-nya.</li>
-                <li>Cari folder `connections/followers_and_following/` untuk menemukan file `followers_1.json` dan
-                    `following.json`.</li>
-            </ol>
+            <div class="steps">
+                <div class="step">
+                    <div class="num">01</div>
+                    <h3>Request your export</h3>
+                    <p>Profile → menu → Account Center → Your information &amp; permissions → Download your information.</p>
+                </div>
+                <div class="step">
+                    <div class="num">02</div>
+                    <h3>Set it to JSON, all time</h3>
+                    <p>Tick “Followers and following”, switch the format to JSON and the range to All time.</p>
+                </div>
+                <div class="step">
+                    <div class="num">03</div>
+                    <h3>Upload the ZIP</h3>
+                    <p>Instagram emails you a download link within minutes. Drop the whole ZIP right above.</p>
+                </div>
+                <div class="step">
+                    <div class="num">04</div>
+                    <h3>Read your results</h3>
+                    <p>Search, copy, or export the list as CSV. Want a history? Add a second, older export too.</p>
+                </div>
+            </div>
+        </section>
 
-            <button onclick="toggleModal()"
-                class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs">
-                Mengerti
-            </button>
+        <!-- ================= ABOUT ================= -->
+        <section class="wrap section" id="about">
+            <div class="section-head">
+                <span class="eyebrow">About</span>
+                <h2>A privacy-first checker, not a tracker</h2>
+                <p>There is no official Instagram endpoint that hands you your own follower list in a readable form, so
+                    people keep giving their login to sketchy sites. This page is the opposite of that: plain HTML,
+                    plain JavaScript, no accounts, no server, no analytics on your file.</p>
+            </div>
+        </section>
+
+        <!-- ================= FAQ ================= -->
+        <section class="wrap section" id="faq">
+            <div class="section-head">
+                <span class="eyebrow">FAQ</span>
+                <h2>Questions people ask</h2>
+            </div>
+
+            <div class="faq-list">
+                <details open>
+                    <summary>Is my data uploaded anywhere?</summary>
+                    <p>No. The ZIP is opened with JSZip inside your browser and the JSON is matched locally. Refreshing or
+                        closing the tab discards everything — there is no storage and no backend.</p>
+                </details>
+                <details>
+                    <summary>Do I need to log in or hand over my password?</summary>
+                    <p>Never. The tool has no sign-in, no OAuth and no password field. It only accepts files you already
+                        downloaded yourself from Meta.</p>
+                </details>
+                <details>
+                    <summary>Where do I find followers_1.json and following.json?</summary>
+                    <p>Inside the extracted ZIP they live in <code>connections/followers_and_following/</code>. You can also
+                        pick the two files directly with the JSON buttons — no need to zip anything.</p>
+                </details>
+                <details>
+                    <summary>What does a second export add?</summary>
+                    <p>Upload an older export as well and the tool diffs them: who started following you, who stopped
+                        following you, and who you unfollowed who never followed back. Add the newest export last.</p>
+                </details>
+                <details>
+                    <summary>Why is the number different from the app?</summary>
+                    <p>Instagram counts deactivated, private and blocked accounts in some places and not others, and your
+                        export can lag by hours or days. A small difference is normal.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- ================= CTA ================= -->
+        <section class="wrap section">
+            <div class="cta">
+                <h2>Ready to clean up your following list?</h2>
+                <p>Free, instant, and completely private. No sign-up, no password, no upload.</p>
+                <a class="btn-primary" href="#checker" style="text-decoration:none">
+                    Check my unfollowers
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap foot-inner">
+            <span>© <span id="year"></span> Unfollow Checker</span>
+            <nav class="foot-links">
+                <a href="#how">How it works</a>
+                <a href="#faq">FAQ</a>
+                <a href="#about">About</a>
+                <a href="#checker">Contact</a>
+            </nav>
+            <p class="disclaimer">Not affiliated with, endorsed by, or connected to Meta, Instagram or Threads.
+                Use your own data export responsibly.</p>
         </div>
-    </div>
+    </footer>
 
     <script>
-        function toggleModal() {
-            document.getElementById('guideModal').classList.toggle('hidden');
-        }
+        /* ------------------------------------------------------------------ */
+        /* theme + nav chrome                                                  */
+        /* ------------------------------------------------------------------ */
+        const root = document.documentElement;
+        const savedTheme = localStorage.getItem('uc-theme');
+        if (savedTheme) root.dataset.theme = savedTheme;
+        else if (window.matchMedia('(prefers-color-scheme: light)').matches) root.dataset.theme = 'light';
 
-        async function readJsonFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        resolve(JSON.parse(e.target.result));
-                    } catch (err) {
-                        reject("Format file JSON tidak valid.");
-                    }
-                };
-                reader.onerror = () => reject("Gagal membaca file.");
-                reader.readAsText(file);
-            });
-        }
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('uc-theme', root.dataset.theme);
+        });
 
-        function extractUsernames(data, type) {
-            const usernames = new Set();
-            try {
-                if (type === 'followers') {
-                    const list = Array.isArray(data) ? data : (data.relationships_followers || []);
-                    list.forEach(item => {
-                        if (item.string_list_data) {
-                            item.string_list_data.forEach(val => usernames.add(val.value));
-                        }
-                    });
-                } else if (type === 'following') {
-                    const list = data.relationships_following || (Array.isArray(data) ? data : []);
-                    list.forEach(item => {
-                        if (item.string_list_data) {
-                            item.string_list_data.forEach(val => usernames.add(val.value));
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error("Error parsing structure:", e);
+        const nav = document.getElementById('nav');
+        addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 8), { passive: true });
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        const navToggle = document.getElementById('navToggle');
+        const mobileMenu = document.getElementById('mobileMenu');
+        navToggle.addEventListener('click', () => {
+            const open = mobileMenu.classList.toggle('show');
+            navToggle.setAttribute('aria-expanded', String(open));
+        });
+        mobileMenu.addEventListener('click', e => {
+            if (e.target.tagName === 'A') {
+                mobileMenu.classList.remove('show');
+                navToggle.setAttribute('aria-expanded', 'false');
             }
-            return usernames;
+        });
+
+        /* ------------------------------------------------------------------ */
+        /* state                                                               */
+        /* ------------------------------------------------------------------ */
+        const state = {
+            exports: [],   // [{ label, followers:Set, following:Set }]
+            view: 'ghosters'
+        };
+
+        const $ = id => document.getElementById(id);
+        const statusEl = $('status');
+
+        function setStatus(msg, kind = '') {
+            statusEl.textContent = msg;
+            statusEl.className = 'status show ' + kind;
         }
 
-        async function analyzeData() {
-            const followersInput = document.getElementById('followersFile').files[0];
-            const followingInput = document.getElementById('followingFile').files[0];
+        /* ------------------------------------------------------------------ */
+        /* parsing helpers                                                     */
+        /* ------------------------------------------------------------------ */
+        const clean = name => String(name || '').trim().replace(/^@/, '').toLowerCase();
 
-            if (!followersInput || !followingInput) {
-                alert("Harap pilih kedua file (Followers & Following) terlebih dahulu!");
+        function collectFromNode(node, into) {
+            if (!node) return;
+            if (Array.isArray(node)) { node.forEach(n => collectFromNode(n, into)); return; }
+            if (typeof node !== 'object') return;
+
+            // Modern export shape: { string_list_data: [{ value: "@user" }] }
+            if (Array.isArray(node.string_list_data)) {
+                node.string_list_data.forEach(entry => {
+                    const v = clean(entry && (entry.value ?? entry.href));
+                    if (v) into.add(v);
+                });
+                return;
+            }
+            // Legacy / flat shape: [ { string_list_data: [...] } ] handled above,
+            // or a bare list of strings / { username } objects.
+            if (typeof node.username === 'string') { const v = clean(node.username); if (v) into.add(v); return; }
+            if (typeof node.value === 'string' && node.type === 'string') { const v = clean(node.value); if (v) into.add(v); return; }
+            Object.values(node).forEach(v => collectFromNode(v, into));
+        }
+
+        function parseFollowers(data) {
+            const set = new Set();
+            if (Array.isArray(data)) collectFromNode(data, set);
+            else if (data && Array.isArray(data.relationships_followers)) collectFromNode(data.relationships_followers, set);
+            else collectFromNode(data, set);
+            return set;
+        }
+
+        function parseFollowing(data) {
+            const set = new Set();
+            if (data && Array.isArray(data.relationships_following)) collectFromNode(data.relationships_following, set);
+            else if (Array.isArray(data)) collectFromNode(data, set);
+            else collectFromNode(data, set);
+            return set;
+        }
+
+        const readText = file => new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result);
+            r.onerror = () => rej(new Error(`Could not read ${file.name}`));
+            r.readAsText(file);
+        });
+
+        const parseJSON = text => {
+            try {
+                return JSON.parse(String(text).replace(/^\uFEFF/, ''));
+            } catch {
+                throw new Error('That file is not valid JSON.');
+            }
+        };
+
+        function diff(a, b) { return [...b].filter(x => !a.has(x)); }
+
+        /* ------------------------------------------------------------------ */
+        /* ingestion                                                           */
+        /* ------------------------------------------------------------------ */
+        async function handleFiles(fileList) {
+            const files = [...fileList].filter(Boolean);
+            if (!files.length) return;
+
+            if (files.length === 2 && files.every(f => /\.json$/i.test(f.name))) {
+                await ingestManual(files[0], files[1]);
+                return;
+            }
+            for (const file of files.slice(0, 2)) await ingestFile(file);
+        }
+
+        async function ingestManual(followersFile, followingFile) {
+            if (!followersFile || !followingFile) {
+                setStatus('Pick both files: followers JSON and following JSON.');
+                return;
+            }
+            const followers = parseFollowers(parseJSON(await readText(followersFile)));
+            const following = parseFollowing(parseJSON(await readText(followingFile)));
+            state.exports = [{ label: 'Manual JSON', followers, following }];
+            setStatus(`Loaded ${followers.size.toLocaleString()} followers and ${following.size.toLocaleString()} following from the two JSON files.`, 'ok');
+            render();
+        }
+
+        async function ingestFile(file) {
+            setStatus(`Reading ${file.name}…`);
+
+            let followers = new Set(), following = new Set();
+
+            if (/\.zip$/i.test(file.name)) {
+                if (typeof JSZip === 'undefined') throw new Error('ZIP support could not load. Check your connection, or use the JSON buttons.');
+
+                const zip = await JSZip.loadAsync(file);
+                const entries = [];
+                zip.forEach((path, entry) => { if (!entry.dir) entries.push(path); });
+
+                // Some Windows archivers write backslashes. Match against normalised
+                // paths, but keep the original key for zip.file() lookups.
+                const original = new Map();
+                entries.forEach(p => original.set(p.replace(/\\/g, '/'), p));
+
+                const jsonPaths = [...original.keys()].filter(p => /\.json$/i.test(p));
+                if (!jsonPaths.length) throw new Error('No JSON files were found inside that ZIP.');
+
+                // Prefer the official folder layout, then fall back to any matching filename.
+                const pick = (re, folderRe) => {
+                    const scoped = jsonPaths.filter(p => folderRe.test(p) && re.test(p.split('/').pop()));
+                    const loose = jsonPaths.filter(p => re.test(p.split('/').pop()));
+                    return scoped[0] || loose[0];
+                };
+
+                const readJSON = async key => parseJSON(await zip.file(original.get(key)).async('string'));
+
+                const followersPath = pick(/^followers/i, /followers_and_following|connections/i);
+                const followingPath = pick(/^following/i, /followers_and_following|connections/i);
+
+                if (!followersPath && !followingPath) {
+                    throw new Error('Could not find followers / following JSON in this ZIP. Make sure the export was requested with the “Followers and following” option.');
+                }
+
+                if (followersPath) followers = parseFollowers(await readJSON(followersPath));
+                if (followingPath) following = parseFollowing(await readJSON(followingPath));
+            } else if (/\.json$/i.test(file.name)) {
+                const data = parseJSON(await readText(file));
+                const isFollowers = /followers/i.test(file.name);
+                if (isFollowers) followers = parseFollowers(data);
+                else following = parseFollowing(data);
+            } else {
+                throw new Error(`Unsupported file type: ${file.name}. Use the ZIP from your data export, or the two JSON files.`);
+            }
+
+            if (!followers.size && !following.size) throw new Error(`No usernames found in ${file.name}.`);
+
+            state.exports.push({ label: file.name, followers, following });
+            if (state.exports.length > 2) state.exports.shift();
+
+            setStatus(state.exports.length === 1
+                ? `Loaded ${file.name}. Add an older export to also detect new followers and unfollows.`
+                : `Loaded ${file.name}. Comparing against ${state.exports[0].label}.`, 'ok');
+            render();
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* results model                                                       */
+        /* ------------------------------------------------------------------ */
+        function buildResults() {
+            const [a] = state.exports;
+            const b = state.exports[1];
+
+            if (!b) {
+                return {
+                    single: true,
+                    tabs: [
+                        { key: 'notBack', label: 'Do not follow you back', list: [...a.following].filter(u => !a.followers.has(u)).sort() },
+                        { key: 'mutuals', label: 'Follow each other', list: [...a.following].filter(u => a.followers.has(u)).sort() }
+                    ],
+                    stats: [
+                        { k: 'Followers', v: a.followers.size },
+                        { k: 'Following', v: a.following.size },
+                        { k: 'Do not follow back', v: [...a.following].filter(u => !a.followers.has(u)).length, warn: true },
+                        { k: 'Follow each other', v: [...a.following].filter(u => a.followers.has(u)).length, good: true }
+                    ]
+                };
+            }
+
+            return {
+                single: false,
+                tabs: [
+                    { key: 'newFollowers', label: 'New followers', list: diff(a.followers, b.followers).sort() },
+                    { key: 'lostFollowers', label: 'Stopped following you', list: diff(b.followers, a.followers).sort() },
+                    { key: 'ghosters', label: 'You removed · never followed back', list: diff(a.following, b.following).filter(u => !a.followers.has(u)).sort() },
+                    { key: 'mutuals', label: 'Follow each other', list: [...b.following].filter(u => b.followers.has(u)).sort() }
+                ],
+                stats: [
+                    { k: 'Followers (new)', v: b.followers.size },
+                    { k: 'Following (new)', v: b.following.size },
+                    { k: 'New followers', v: diff(a.followers, b.followers).length, good: true },
+                    { k: 'Stopped following you', v: diff(b.followers, a.followers).length, warn: true }
+                ]
+            };
+        }
+
+        let model = null;
+
+        function render() {
+            if (!state.exports.length) return;
+            model = buildResults();
+            if (!model.tabs.some(t => t.key === state.view)) state.view = model.tabs[0].key;
+
+            $('stats').innerHTML = model.stats.map(s =>
+                `<div class="stat ${s.warn ? 'warn' : ''} ${s.good ? 'good' : ''}">
+                    <span class="k">${s.k}</span><span class="v">${s.v.toLocaleString()}</span>
+                </div>`).join('');
+
+            $('tabs').innerHTML = model.tabs.map(t =>
+                `<button class="tab ${t.key === state.view ? 'active' : ''}" data-key="${t.key}">
+                    ${t.label} · ${t.list.length.toLocaleString()}
+                </button>`).join('');
+
+            $('results').hidden = false;
+            paintList();
+        }
+
+        function currentList() {
+            const tab = model.tabs.find(t => t.key === state.view);
+            const q = $('search').value.trim().toLowerCase().replace(/^@/, '');
+            return q ? tab.list.filter(u => u.includes(q)) : tab.list;
+        }
+
+        function paintList() {
+            const list = currentList();
+            const box = $('userList');
+
+            if (!list.length) {
+                box.innerHTML = `<div class="empty">Nothing to show here. 🎉</div>`;
                 return;
             }
 
-            try {
-                const followersData = await readJsonFile(followersInput);
-                const followingData = await readJsonFile(followingInput);
-
-                const followersSet = extractUsernames(followersData, 'followers');
-                const followingSet = extractUsernames(followingData, 'following');
-
-                const notFollowingBack = [];
-                followingSet.forEach(user => {
-                    if (!followersSet.has(user)) {
-                        notFollowingBack.push(user);
-                    }
-                });
-
-                document.getElementById('followersCount').innerText = followersSet.size.toLocaleString();
-                document.getElementById('followingCount').innerText = followingSet.size.toLocaleString();
-                document.getElementById('notFollbackCount').innerText = notFollowingBack.length.toLocaleString();
-
-                const listContainer = document.getElementById('unfollowerList');
-                listContainer.innerHTML = '';
-
-                if (notFollowingBack.length === 0) {
-                    listContainer.innerHTML = `<div class="text-center text-gray-500 py-4">Semua akun mengikuti kamu kembali! 🎉</div>`;
-                } else {
-                    notFollowingBack.sort().forEach(username => {
-                        const item = document.createElement('div');
-                        item.className = 'py-2 flex justify-between items-center text-gray-300 hover:text-white';
-                        item.innerHTML = `
-                            <span>@${username}</span>
-                            <a href="https://instagram.com/${username}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:underline">Buka Profil</a>
-                        `;
-                        listContainer.appendChild(item);
-                    });
-                }
-
-                document.getElementById('resultBox').classList.remove('hidden');
-
-            } catch (err) {
-                alert(err);
-            }
+            box.innerHTML = list.map(u => `
+                <div class="user-row">
+                    <span class="avatar">${u.slice(0, 2)}</span>
+                    <span class="username">@${escapeHTML(u)}</span>
+                    <a class="open-link" href="https://www.instagram.com/${encodeURIComponent(u)}"
+                       target="_blank" rel="noopener noreferrer">Open profile →</a>
+                </div>`).join('');
         }
 
-        function copyList() {
-            const items = document.querySelectorAll('#unfollowerList span');
-            if (items.length === 0) return;
+        function escapeHTML(s) {
+            return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
 
-            const text = Array.from(items).map(i => i.innerText).join('\n');
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Daftar username berhasil disalin!");
-            });
+        /* ------------------------------------------------------------------ */
+        /* events                                                              */
+        /* ------------------------------------------------------------------ */
+        const drop = $('drop');
+        const fileInput = $('fileInput');
+
+        $('chooseBtn').addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', async e => {
+            await handleFiles(e.target.files).catch(showError);
+            fileInput.value = '';
+        });
+
+        ['dragenter', 'dragover'].forEach(ev =>
+            drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+        ['dragleave', 'drop'].forEach(ev =>
+            drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+
+        drop.addEventListener('drop', async e => {
+            if (e.dataTransfer?.files?.length) await handleFiles(e.dataTransfer.files).catch(showError);
+        });
+
+        $('followersFile').addEventListener('change', e => {
+            if (e.target.files[0]) ingestManual(e.target.files[0], $('followingFile').files[0]).catch(showError);
+        });
+
+        $('followingFile').addEventListener('change', e => {
+            if (e.target.files[0]) ingestManual($('followersFile').files[0], e.target.files[0]).catch(showError);
+        });
+
+        $('tabs').addEventListener('click', e => {
+            const btn = e.target.closest('.tab');
+            if (!btn) return;
+            state.view = btn.dataset.key;
+            render();
+        });
+
+        $('search').addEventListener('input', paintList);
+
+        $('copyBtn').addEventListener('click', async () => {
+            const list = currentList();
+            if (!list.length) return;
+            try {
+                await navigator.clipboard.writeText(list.map(u => '@' + u).join('\n'));
+                $('copyBtn').lastChild.textContent = ' Copied';
+                setTimeout(() => ($('copyBtn').lastChild.textContent = ' Copy'), 1500);
+            } catch {
+                setStatus('Clipboard blocked by the browser. Select the rows and copy manually.', 'err');
+            }
+        });
+
+        $('csvBtn').addEventListener('click', () => {
+            const list = currentList();
+            if (!list.length) return;
+            const tab = model.tabs.find(t => t.key === state.view);
+            const blob = new Blob(['username\n' + list.join('\n') + '\n'], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${tab.key}-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        function showError(err) {
+            console.error(err);
+            setStatus(err && err.message ? err.message : String(err), 'err');
         }
     </script>
 </body>
